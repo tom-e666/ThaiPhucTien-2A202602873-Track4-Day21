@@ -40,11 +40,14 @@ Bảng hoặc plot số liệu, kèm ảnh/video demo. Dữ liệu từ file `re
 
 ## 3. Failure case
 
-Nêu khi nào hệ thống hoặc phương pháp fail, vì sao fail, và liên hệ tới lớp nào trong 6 lớp debug: I/O, Geometry, Time, Preprocess, Model, Metric.
+![fail](../results/figures/fail_01_yaw_drift_pedestrian.png)
 
-![failure](../results/figures/fail_[ĐIỀN].png)
+- **Trường hợp:** KITTI, frame `000011`, người đi bộ ở khoảng cách 34.1 m (label #3), khi góc xoay extrinsic yaw bị lệch từ 1.0° đến 2.0°.
+- **Quan sát:** Ở baseline (yaw 0.0°), điểm LiDAR bám khít thân người đi bộ (hit_ratio đạt 99.67%). Khi yaw lệch 2.0°, toàn bộ cụm điểm LiDAR thuộc 3D box của người này bị trôi ngang sang phải ~25.2 pixel, rơi hoàn toàn ra ngoài 2D bounding box (hộp 2D của người ở cự ly 34.1 m chỉ rộng 15.3 pixel), kéo hit_ratio của riêng người đi bộ trong frame xuống chỉ còn 21.17%.
+- **Nguyên nhân:** Ma trận ngoại suy $T_{velo\_to\_cam}$ bị sai lệch góc yaw $\Delta \theta = 2.0^\circ$. Với tiêu cự camera $f_x \approx 721.5\text{ px}$, độ dịch chuyển pixel ngang xấp xỉ $\Delta u \approx f_x \cdot \tan(\Delta \theta) \approx 721.5 \cdot \tan(2.0^\circ) \approx 25.2\text{ px}$. Vì người đi bộ ở xa có tiết diện 2D rất nhỏ (rộng 15.3 px), độ lệch 25.2 px vượt quá giới hạn biên của box khiến 100% điểm bị văng ra nền ảnh.
+- **Lớp debug:** Geometry (Ma trận ngoại suy extrinsic $R_{velo\_to\_cam}$ bị lệch góc quay).
+- **Cách phát hiện khi chạy thật:** Giám sát liên tục chỉ số `hit_ratio` theo từng phân lớp đối tượng (đặc biệt là lớp có diện tích nhỏ như Pedestrian/Cyclist), kết hợp đo độ khớp biên cạnh (edge-alignment residual giữa Canny edges của camera và cụm điểm LiDAR). Nếu `hit_ratio_pedestrian < 0.85` hoặc khoảng cách trôi biên vượt quá 10 pixel, hệ thống lập tức kích hoạt cảnh báo Calibration Drift Alert và chuyển cụm fusion sang chế độ an toàn (fail-safe).
 
-[ĐIỀN]
 
 ## 4. Khuyến nghị nếu triển khai thật
 
