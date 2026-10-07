@@ -98,11 +98,13 @@ Chạy thực nghiệm quét lệch extrinsic yaw trên `data/nuscenes_mini_subs
 
 ## 4. Khuyến nghị nếu triển khai thật
 
-- **Use-case cụ thể:** Hệ thống tự hành ADAS Cấp độ 3+ cho xe đô thị tích hợp Camera-LiDAR Sensor Fusion cho tính năng Phanh khẩn cấp tự động (AEB) và Nhận diện người đi bộ (Pedestrian Collision Avoidance).
-- **Trade-off cốt lõi:** Đánh đổi giữa **Độ nhạy phát hiện drift** và **Tỉ lệ báo động sai (False Alarm Rate)**:
-  - Nếu chọn ngưỡng cảnh báo quá cao (`hit_ratio > 95%`), hệ thống sẽ bị báo động nhầm liên tục khi người đi bộ bị cây cối, xe cộ che khuất một phần (occlusion), làm xe ngắt tính năng fusion chuyển sang chế độ suy giảm (degraded mode) không cần thiết.
-  - Nếu chọn ngưỡng quá lỏng (`hit_ratio < 70%`), hệ thống sẽ bỏ lọt sai số yaw 1.0°–1.5°, khiến bounding box 3D bị chiếu trượt khỏi vị trí thực tế trên ảnh, dẫn đến việc ước lượng khoảng cách tới người đi bộ sai lệch nghiêm trọng. Ngưỡng tối ưu thực nghiệm là $80.0\% - 85.0\%$.
-- **Bước tiếp theo:** Tích hợp mô-đun *Online Targetless Calibration* (tự động cân chỉnh lại ngoại suy không cần bảng chuẩn) dựa trên tối ưu hóa residual giữa cạnh ảnh (Canny/Sobel) và gradient độ sâu LiDAR mỗi chu kỳ 5 phút hoặc khi IMU ghi nhận va chạm gờ giảm tốc mạnh.
+- **Use-case cụ thể:** Xe điện giao hàng tự hành cấp độ 3+ (Autonomous Delivery Robot/Vehicle) vận hành trong đô thị đông đúc với tốc độ dưới 35 km/h, tích hợp Camera-LiDAR Sensor Fusion phục vụ tính năng phanh khẩn cấp tự động (AEB) và nhận diện người đi bộ sang đường.
+- **Đánh đổi khi triển khai:**
+  - *Về tài nguyên vs độ trễ phát hiện:* Kiểm tra projection QA tốn khoảng 12.6 ms CPU (theo trung vị p50 ở mục [B3]). Nếu kiểm tra liên tục mỗi frame sẽ chiếm ~13% tài nguyên xử lý của chu kỳ 10 Hz; phương án tối ưu là chỉ chạy QA khi xe dừng chờ đèn đỏ hoặc lấy mẫu kiểm tra mỗi chu kỳ 5 giây lúc xe đang di chuyển.
+  - *Về ngưỡng cảnh báo (Sensitivity vs False Alarm):* Nếu đặt ngưỡng quá chặt (`hit_ratio > 95%`), hệ thống sẽ kích hoạt báo động sai liên tục khi người đi bộ bị che khuất một phần (occlusion) bởi cột đèn hoặc phương tiện khác. Ngược lại, nếu đặt ngưỡng quá lỏng (`hit_ratio < 70%`), hệ thống sẽ bỏ sót sai số yaw từ 0.5°–1.0°. Ngưỡng cảnh báo tối ưu là **85.0%** (cho lớp Pedestrian).
+- **Chỉ số cần ghi log và giám sát thực tế:**
+  - Ghi log liên tục `hit_ratio` theo từng phân lớp (Pedestrian, Car) theo cửa sổ trượt 1 phút. Nếu `hit_ratio_pedestrian < 85%` trong 3 chu kỳ liên tiếp, xe tự động giảm tốc và chuyển sang chế độ an toàn (fail-safe).
+  - Ghi log bổ sung **nhiệt độ giá đỡ cảm biến (mounting bracket temperature)** và **gia tốc rung chấn từ IMU** để phân biệt drift xảy ra do biến dạng cơ học khi va đập gờ giảm tốc hay do giãn nở nhiệt kim loại theo thời tiết.
 
 ## 5. Cách chạy lại
 
@@ -135,10 +137,13 @@ python -m src.stress_test_perturb
 
 ## 6. Khai báo sử dụng AI
 
-Dùng script mẫu của codelab làm điểm xuất phát, sau đó mở rộng thêm hàm phân tách đa lớp (`run_breakdown`), xây dựng công cụ CLI tự động hóa QA (`qa_projection_tool`), kịch bản stress-test suy giảm và script phân tích failure case trực quan.
+Dùng script mẫu của codelab làm điểm xuất phát, sau đó mở rộng thêm hàm phân tách đa lớp (`run_breakdown`), xây dựng công cụ CLI tự động hóa QA (`qa_projection_tool`), kịch bản stress-test suy giảm dữ liệu và script phân tích failure case trực quan.
 
 | Công cụ | Dùng cho việc gì | Bạn đã kiểm chứng thế nào |
 |---|---|---|
-| Google Antigravity | Gợi ý khung sườn sweep, script vẽ đồ thị, CLI tool tái sử dụng và đo latency p50/p95 | Tự chạy self-test `test_projection`, chạy lệnh tái lập dữ liệu 100% bằng `filecmp`, đối chiếu kết quả kỳ vọng trên cả KITTI và nuScenes |
+| Codelab Day 6 | Script mẫu `exp_yaw_sweep.py` và module `starter/` | Chạy đối chiếu khớp 100% kết quả ban đầu trước khi mở rộng tính năng |
+| Google Antigravity | Gợi ý khung sườn sweep per-class, script vẽ đồ thị, CLI tool tái sử dụng và đo latency p50/p95 | Tự chạy self-test `test_projection`, chạy lệnh tái lập dữ liệu 100% bằng `filecmp`, đối chiếu kết quả kỳ vọng trên cả KITTI và nuScenes |
+| OpenCV / Matplotlib | Sinh ảnh trực quan failure case so sánh song song phóng to người đi bộ ở 34m | Kiểm tra thủ công kích thước pixel, độ trôi 25.2 px và hiển thị trên ảnh kết quả |
+
 
 
