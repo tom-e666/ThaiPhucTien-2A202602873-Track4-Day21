@@ -24,35 +24,30 @@ from starter.kitti_io import KittiCalib, KittiObject
 
 
 def velo_to_cam(points_xyz: np.ndarray, calib: KittiCalib) -> np.ndarray:
-    """Đưa điểm (N, 3) từ velodyne frame sang rectified camera frame (N, 3).
-
-    TODO(CP2):
-      1. Chuyển sang toạ độ đồng nhất (N, 4).
-      2. Nhân với calib.T_cam_velo (4x4). Chú ý chiều nhân và transpose.
-      3. Trả về 3 cột đầu.
-    Tự kiểm: một điểm velodyne (10, 0, 0) phải có z_cam ~ 10 (phía trước camera).
-    """
-    raise NotImplementedError("TODO(CP2): cài đặt velo_to_cam")
+    n = points_xyz.shape[0]
+    hom = np.hstack([points_xyz, np.ones((n, 1), dtype=points_xyz.dtype)])
+    cam_hom = hom @ calib.T_cam_velo.T
+    return cam_hom[:, :3]
 
 
 def cam_to_image(points_cam: np.ndarray, P2: np.ndarray, image_shape: tuple[int, ...],
                  min_depth: float = 0.1) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-    """Chiếu điểm camera frame (N, 3) lên ảnh bằng P2 (3x4).
+    h, w = image_shape[:2]
+    n = points_cam.shape[0]
+    valid = np.isfinite(points_cam).all(axis=1) & (points_cam[:, 2] > min_depth)
+    if not np.any(valid):
+        return np.empty((0, 2)), np.empty((0,)), np.zeros(n, dtype=bool)
 
-    Trả về:
-      uv    (M, 2) toạ độ pixel của các điểm hợp lệ
-      depth (M,)   z_cam của các điểm hợp lệ
-      mask  (N,)   bool, True nếu điểm hợp lệ
+    pts_valid = points_cam[valid]
+    hom = np.hstack([pts_valid, np.ones((len(pts_valid), 1), dtype=pts_valid.dtype)])
+    proj = hom @ P2.T
+    depth = proj[:, 2]
+    uv = proj[:, :2] / depth[:, None]
 
-    Điểm hợp lệ = depth > min_depth VÀ nằm trong ảnh (0 <= u < W, 0 <= v < H).
-
-    TODO(CP2):
-      1. Lọc điểm không hợp lệ (NaN/Inf): dữ liệu thật không bao giờ sạch.
-      2. Toạ độ đồng nhất, nhân P2 -> (N, 3) = [s*u, s*v, s].
-      3. Chia cho s để có (u, v). Chỉ chia với điểm có depth > min_depth.
-      4. Lọc theo kích thước ảnh image_shape[:2] = (H, W).
-    """
-    raise NotImplementedError("TODO(CP2): cài đặt cam_to_image")
+    in_img = (uv[:, 0] >= 0) & (uv[:, 0] < w) & (uv[:, 1] >= 0) & (uv[:, 1] < h)
+    mask = np.zeros(n, dtype=bool)
+    mask[np.where(valid)[0][in_img]] = True
+    return uv[in_img], depth[in_img], mask
 
 
 def project_velo_to_image(points: np.ndarray, calib: KittiCalib, image_shape: tuple[int, ...]):

@@ -26,7 +26,7 @@ Bảng hoặc plot số liệu, kèm ảnh/video demo. Ghi rõ đường dẫn f
 |---|---|---|---|
 | [ĐIỀN] | | | |
 
-![demo](../results/figures/[ĐIỀN].png)
+![demo](../results/figures/overlay_000011_r0.0_p0.0_y0.0_t0.0_0.0_0.0.png)
 
 ## 3. Failure case
 
@@ -47,7 +47,8 @@ Use-case cụ thể (ADAS / robot / drone), trade-off và bước tiếp theo.
 Các lệnh tái tạo lại toàn bộ kết quả từ repo sạch.
 
 ```bash
-[ĐIỀN]
+python -m src.test_projection
+python -m starter.projection --data-root data/kitti_mini --frame 000011
 ```
 
 ## 6. Khai báo sử dụng AI
