@@ -20,13 +20,23 @@ Lệch góc yaw extrinsic 1° làm tỉ lệ điểm LiDAR rơi đúng vào 2D b
 
 ## 2. Evidence
 
-Bảng hoặc plot số liệu, kèm ảnh/video demo. Ghi rõ đường dẫn file trong `results/`.
+Bảng hoặc plot số liệu, kèm ảnh/video demo. Dữ liệu từ file `results/yaw_perturb_sweep.csv` và `results/yaw_class_breakdown.csv`.
 
-| Cấu hình / mức perturb | Metric 1 | Metric 2 | Ghi chú |
-|---|---|---|---|
-| [ĐIỀN] | | | |
+| Cấu hình (yaw) | Frame 000008 (Xe hơi) | Frame 000011 (Người đi bộ) | Frame 000049 (Hỗn hợp) | Ghi chú |
+|---|---|---|---|---|
+| 0.0° (Gốc) | 99.63% | 99.45% | 99.25% | Mức sàn calib chuẩn |
+| 0.5° | 99.57% | 91.88% | 97.46% | Bắt đầu trôi điểm ở pedestrian |
+| 1.0° | 98.62% | 77.44% | 93.50% | Người đi bộ giảm mạnh > 20% |
+| 2.0° | 94.81% | 45.44% | 84.74% | Sai lệch nghiêm trọng |
+| 3.0° | 90.98% | 21.23% | 74.32% | Pedestrian trượt gần hết (>94%) |
 
-![demo](../results/figures/overlay_000011_r0.0_p0.0_y0.0_t0.0_0.0_0.0.png)
+![yaw sweep](../results/figures/yaw_sweep.png)
+![yaw class breakdown](../results/figures/yaw_class_breakdown.png)
+
+**Nhận xét xu hướng:**
+- Lệch góc yaw ảnh hưởng mạnh nhất tới frame `000011` (nhiều người đi bộ): ở 1.0°, tỉ lệ hit_ratio giảm từ 99.45% xuống 77.44%. Khi bóc tách chi tiết lớp đối tượng trong frame `000011`, hit_ratio của `Pedestrian` giảm sâu xuống còn 61.89%, trong khi `Car` vẫn duy trì 91.12%.
+- Frame `000008` (chủ yếu là xe ô tô kích thước lớn) suy giảm rất chậm: ở 1.0° đạt 98.62% và ở 3.0° vẫn giữ 90.98%, vì kích thước bounding box của xe hơi lớn hơn người đi bộ gấp nhiều lần trên ảnh.
+- Ở mức lệch 3.0°, điểm LiDAR của người đi bộ chỉ còn 5.21% rơi đúng vào box, gần như làm tê liệt khả năng sensor fusion đối với người đi bộ.
 
 ## 3. Failure case
 
@@ -44,17 +54,27 @@ Use-case cụ thể (ADAS / robot / drone), trade-off và bước tiếp theo.
 
 ## 5. Cách chạy lại
 
-Các lệnh tái tạo lại toàn bộ kết quả từ repo sạch.
+Các lệnh tái tạo lại toàn bộ kết quả từ repo sạch:
 
 ```bash
+# 1. Chạy self-test projection logic
 python -m src.test_projection
+
+# 2. Render ảnh chiếu overlay mẫu
 python -m starter.projection --data-root data/kitti_mini --frame 000011
+
+# 3. Chạy thí nghiệm quét góc lệch yaw (tạo kết quả CSV và breakdown)
+python -m src.exp_yaw_sweep --data-root data/kitti_mini --frames 000008 000011 000049
+
+# 4. Vẽ đồ thị phân tích
+python -m src.plot_yaw_sweep
 ```
 
 ## 6. Khai báo sử dụng AI
 
-Ghi rõ đã dùng công cụ AI nào, dùng vào việc gì, và bạn đã tự kiểm chứng kết quả đó bằng cách nào. Nếu không dùng AI, ghi "Không sử dụng". Xem quy định ở `RULES.md` mục 2.
+Dùng script mẫu của codelab làm điểm xuất phát, sau đó mở rộng thêm hàm phân tách đa lớp (`run_breakdown`) để bóc tách độ nhạy hit_ratio riêng biệt giữa Car và Pedestrian.
 
 | Công cụ | Dùng cho việc gì | Bạn đã kiểm chứng thế nào |
 |---|---|---|
-| [ĐIỀN] | | |
+| Google Antigravity | Gợi ý cấu trúc sweep, script vẽ đồ thị và hàm mở rộng `run_breakdown` phân tích per-class | Tự chạy self-test `test_projection`, đối chiếu bảng kết quả kỳ vọng và kiểm tra tái lập 100% bằng script `filecmp` |
+
