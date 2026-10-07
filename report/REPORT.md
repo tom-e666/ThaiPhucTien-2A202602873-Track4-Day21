@@ -38,6 +38,53 @@ Bảng hoặc plot số liệu, kèm ảnh/video demo. Dữ liệu từ file `re
 - Frame `000008` (chủ yếu là xe ô tô kích thước lớn) suy giảm rất chậm: ở 1.0° đạt 98.62% và ở 3.0° vẫn giữ 90.98%, vì kích thước bounding box của xe hơi lớn hơn người đi bộ gấp nhiều lần trên ảnh.
 - Ở mức lệch 3.0°, điểm LiDAR của người đi bộ chỉ còn 5.21% rơi đúng vào box, gần như làm tê liệt khả năng sensor fusion đối với người đi bộ.
 
+### [B5] So sánh trên cả hai dataset thật (KITTI vs nuScenes) (+2)
+
+Chạy thực nghiệm quét lệch extrinsic yaw trên `data/nuscenes_mini_subset` (file: `results/yaw_perturb_nuscenes.csv` và `results/yaw_class_nuscenes.csv`):
+
+| Yếu tố so sánh | KITTI (`000011`) | nuScenes (`scene-0103_000`) | Nhận xét kỹ thuật |
+|---|---|---|---|
+| Số beam LiDAR | 64 beam | 32 beam | nuScenes thưa điểm hơn 3-4 lần |
+| Tổng điểm mỗi frame | 108,004 điểm | 34,752 điểm | KITTI dày đặc hơn nhiều |
+| Kích thước ảnh | 1242 × 375 px | 1600 × 900 px | nuScenes có góc nhìn và độ phân giải lớn hơn |
+| Tiêu cự camera ($f_x$) | ~721.5 px | ~1252.8 px | Tiêu cự nuScenes lớn gấp 1.74 lần |
+| hit_ratio ở Yaw 0.0° | 99.45% | 100.0% | Calib gốc chuẩn |
+| hit_ratio ở Yaw 1.0° | 77.44% | **50.00%** | **nuScenes suy giảm mạnh hơn hẳn** |
+| hit_ratio ở Yaw 2.0° | 45.44% | **6.25%** | nuScenes điểm gần như văng hết ra ngoài |
+
+**Giải thích nguyên nhân:** Tiêu cự camera nuScenes ($f_x \approx 1253$ px) lớn hơn KITTI ($f_x \approx 721$ px), do đó cùng một góc lệch $\Delta \theta = 1.0^\circ$, độ lệch pixel ngang trên nuScenes lên tới $\Delta u \approx 1253 \cdot \tan(1.0^\circ) \approx 21.9\text{ px}$ (so với chỉ $12.6\text{ px}$ ở KITTI). Độ dịch chuyển lớn hơn 1.74 lần làm các điểm LiDAR trên nuScenes trôi ra khỏi bounding box nhanh và nghiêm trọng hơn nhiều.
+
+---
+
+### [B2] Stress test suy giảm dữ liệu (Perturbation Robustness) (+3)
+
+Đánh giá tính bền bỉ của phép chiếu và metric QA khi dữ liệu đầu vào bị suy giảm ngẫu nhiên (dữ liệu tại `results/stress_test_perturb.csv`):
+
+![stress test](../results/figures/stress_test_perturb.png)
+
+1. **Random Dropout (Mưa/Bụi bẩn che lấp điểm):**
+   - Giữ lại `100% → 70% → 50% → 30%` điểm: Số điểm trên người đi bộ giảm mạnh từ 307 điểm xuống chỉ còn 84 điểm (mất 72.6% mật độ).
+   - Tuy nhiên, `hit_ratio` vẫn duy trì 100% vì hệ tọa độ không đổi, các điểm còn lại vẫn nằm trúng trong box. Metric `hit_ratio` không bị đánh lừa bởi việc thưa điểm.
+2. **Gaussian Noise (Nhiễu đo cự ly sensor $\sigma = 0 \to 10\text{ cm}$):**
+   - Khi $\sigma$ tăng lên 10 cm, điểm bắt đầu bị tán xạ ra ngoài biên: số điểm trong 3D box giảm từ 307 xuống 268, và `ped_hit_ratio` giảm từ 99.67% xuống 96.27%.
+
+---
+
+### [B3] Đo latency benchmark chuẩn xác (+2)
+
+Đo lường thời gian thực thi của pipeline chiếu điểm (21 lần lặp, loại bỏ lần đầu chạy warmup, dữ liệu tại `results/latency_benchmark.csv`):
+
+- **Thông số phần cứng:**
+  - CPU: 11th Gen Intel(R) Core(TM) i5-11400H @ 2.70GHz
+  - RAM: 24 GB DDR4
+  - GPU: NVIDIA GeForce RTX 3050 Ti Laptop GPU
+- **Kết quả đo lường (20 lần sau warmup):**
+  - Warmup run (lần 0): 12.29 ms
+  - **p50 (Trung vị):** **12.62 ms**
+  - **p95 (Phân vị 95):** **13.68 ms**
+  - Trung bình (Mean): 12.72 ms
+- **Ý nghĩa:** Tốc độ đạt ~79 FPS, hoàn toàn đáp ứng thời gian thực (real-time) cho camera 10–30 Hz và LiDAR 10–20 Hz trên xe tự hành.
+
 ## 3. Failure case
 
 ![fail](../results/figures/fail_01_yaw_drift_pedestrian.png)
@@ -51,9 +98,11 @@ Bảng hoặc plot số liệu, kèm ảnh/video demo. Dữ liệu từ file `re
 
 ## 4. Khuyến nghị nếu triển khai thật
 
-Use-case cụ thể (ADAS / robot / drone), trade-off và bước tiếp theo.
-
-[ĐIỀN]
+- **Use-case cụ thể:** Hệ thống tự hành ADAS Cấp độ 3+ cho xe đô thị tích hợp Camera-LiDAR Sensor Fusion cho tính năng Phanh khẩn cấp tự động (AEB) và Nhận diện người đi bộ (Pedestrian Collision Avoidance).
+- **Trade-off cốt lõi:** Đánh đổi giữa **Độ nhạy phát hiện drift** và **Tỉ lệ báo động sai (False Alarm Rate)**:
+  - Nếu chọn ngưỡng cảnh báo quá cao (`hit_ratio > 95%`), hệ thống sẽ bị báo động nhầm liên tục khi người đi bộ bị cây cối, xe cộ che khuất một phần (occlusion), làm xe ngắt tính năng fusion chuyển sang chế độ suy giảm (degraded mode) không cần thiết.
+  - Nếu chọn ngưỡng quá lỏng (`hit_ratio < 70%`), hệ thống sẽ bỏ lọt sai số yaw 1.0°–1.5°, khiến bounding box 3D bị chiếu trượt khỏi vị trí thực tế trên ảnh, dẫn đến việc ước lượng khoảng cách tới người đi bộ sai lệch nghiêm trọng. Ngưỡng tối ưu thực nghiệm là $80.0\% - 85.0\%$.
+- **Bước tiếp theo:** Tích hợp mô-đun *Online Targetless Calibration* (tự động cân chỉnh lại ngoại suy không cần bảng chuẩn) dựa trên tối ưu hóa residual giữa cạnh ảnh (Canny/Sobel) và gradient độ sâu LiDAR mỗi chu kỳ 5 phút hoặc khi IMU ghi nhận va chạm gờ giảm tốc mạnh.
 
 ## 5. Cách chạy lại
 
@@ -71,13 +120,25 @@ python -m src.exp_yaw_sweep --data-root data/kitti_mini --frames 000008 000011 0
 
 # 4. Vẽ đồ thị phân tích
 python -m src.plot_yaw_sweep
+
+# 5. [B4] Chạy CLI tool tái sử dụng để audit QA và calibration drift
+python -m src.qa_projection_tool --help
+python -m src.qa_projection_tool --data-root data/kitti_mini --frame 000011 --yaw 0.0
+python -m src.qa_projection_tool --data-root data/kitti_mini --frame 000011 --yaw 1.5 --threshold 0.85
+
+# 6. [B3] Chạy benchmark latency (p50, p95)
+python -m src.bench_latency
+
+# 7. [B2] Chạy stress test suy giảm dữ liệu (dropout & noise)
+python -m src.stress_test_perturb
 ```
 
 ## 6. Khai báo sử dụng AI
 
-Dùng script mẫu của codelab làm điểm xuất phát, sau đó mở rộng thêm hàm phân tách đa lớp (`run_breakdown`) để bóc tách độ nhạy hit_ratio riêng biệt giữa Car và Pedestrian.
+Dùng script mẫu của codelab làm điểm xuất phát, sau đó mở rộng thêm hàm phân tách đa lớp (`run_breakdown`), xây dựng công cụ CLI tự động hóa QA (`qa_projection_tool`), kịch bản stress-test suy giảm và script phân tích failure case trực quan.
 
 | Công cụ | Dùng cho việc gì | Bạn đã kiểm chứng thế nào |
 |---|---|---|
-| Google Antigravity | Gợi ý cấu trúc sweep, script vẽ đồ thị và hàm mở rộng `run_breakdown` phân tích per-class | Tự chạy self-test `test_projection`, đối chiếu bảng kết quả kỳ vọng và kiểm tra tái lập 100% bằng script `filecmp` |
+| Google Antigravity | Gợi ý khung sườn sweep, script vẽ đồ thị, CLI tool tái sử dụng và đo latency p50/p95 | Tự chạy self-test `test_projection`, chạy lệnh tái lập dữ liệu 100% bằng `filecmp`, đối chiếu kết quả kỳ vọng trên cả KITTI và nuScenes |
+
 

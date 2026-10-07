@@ -1,0 +1,16 @@
+dataset,frame,yaw_deg,n_points,inside_image,object_points,hit_ratio
+nuscenes_mini_subset,scene-0103_000,0,34752,2984,48,1.0
+nuscenes_mini_subset,scene-0103_000,0.5,34752,2972,48,0.875
+nuscenes_mini_subset,scene-0103_000,1,34752,2959,48,0.5
+nuscenes_mini_subset,scene-0103_000,2,34752,2934,48,0.0625
+nuscenes_mini_subset,scene-0103_000,3,34752,2914,48,0.0208
+nuscenes_mini_subset,scene-0103_010,0,34720,3120,100,1.0
+nuscenes_mini_subset,scene-0103_010,0.5,34720,3126,99,0.9697
+nuscenes_mini_subset,scene-0103_010,1,34720,3125,97,0.9072
+nuscenes_mini_subset,scene-0103_010,2,34720,3126,92,0.75
+nuscenes_mini_subset,scene-0103_010,3,34720,3133,89,0.6517
+nuscenes_mini_subset,scene-0103_020,0,34752,2990,243,1.0
+nuscenes_mini_subset,scene-0103_020,0.5,34752,2982,251,0.9761
+nuscenes_mini_subset,scene-0103_020,1,34752,2973,256,0.9531
+nuscenes_mini_subset,scene-0103_020,2,34752,2965,274,0.8686
+nuscenes_mini_subset,scene-0103_020,3,34752,2960,287,0.7805

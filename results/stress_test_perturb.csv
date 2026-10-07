@@ -1,0 +1,9 @@
+perturb_type,param_value,param_unit,n_points,inside_image,object_points,hit_ratio,ped_points,ped_hit_ratio
+random_dropout,1.0,keep_ratio,108004,19946,725,0.9945,307,0.9967
+random_dropout,0.7,keep_ratio,75698,14102,509,0.9941,205,1.0
+random_dropout,0.5,keep_ratio,54155,10105,370,0.9973,150,1.0
+random_dropout,0.3,keep_ratio,32322,6102,215,1.0,84,1.0
+gaussian_noise,0.0,sigma_xyz_m,108004,19946,725,0.9945,307,0.9967
+gaussian_noise,0.02,sigma_xyz_m,108004,19955,715,0.993,308,0.9935
+gaussian_noise,0.05,sigma_xyz_m,108004,19968,676,0.9926,297,0.9865
+gaussian_noise,0.1,sigma_xyz_m,108004,19997,591,0.9831,268,0.9627
